@@ -11,6 +11,7 @@ public:
 
 	ID2D1HwndRenderTarget* GetRenderTarget() const { return pRenderTarget; }
 	ID2D1Factory* GetFactory() const { return pFactory; }
+	ID2D1SolidColorBrush* GetBrush() const { return pBrush; }
 
 	void Initialize(HWND hwnd)
 	{

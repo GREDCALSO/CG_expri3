@@ -126,6 +126,8 @@
     <ClCompile Include="brush.cpp" />
     <ClCompile Include="bspline.cpp" />
     <ClCompile Include="circle.cpp" />
+    <ClCompile Include="clip_line.cpp" />
+    <ClCompile Include="clip_polygon.cpp" />
     <ClCompile Include="fill.cpp" />
     <ClCompile Include="line.cpp" />
     <ClCompile Include="main.cpp" />
@@ -146,8 +148,10 @@
     <ClInclude Include="graphic_algorithms.h" />
     <ClInclude Include="graphic_modes.h" />
     <ClInclude Include="line.h" />
+    <ClInclude Include="clip_line.h" />
     <ClInclude Include="markpoint.h" />
     <ClInclude Include="polygon.h" />
+    <ClInclude Include="clip_polygon.h" />
     <ClInclude Include="rectang.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="transform.h" />

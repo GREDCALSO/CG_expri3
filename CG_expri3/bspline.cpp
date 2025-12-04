@@ -48,7 +48,11 @@ namespace GraphicFunc
 
 		void DrawRandomBSpline(std::vector<POINT>& ctrlPts, Renderer& renderer)
 		{
-			if (ctrlPts.size() < 4) return;
+			if (ctrlPts.size() < 4)
+			{
+				ctrlPts.clear();
+				return;
+			}
 			Color color(0.3f, 0.0f, 0.0f, 0.2f);
 			for (int i = 0; i < ctrlPts.size() - 1; i++)
 			{

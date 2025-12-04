@@ -92,3 +92,27 @@ void AddShape_line(std::vector<Shape>& gShape, POINT start, POINT end)
 
 	gShape.push_back(sp);
 }
+
+void AddShape_polygon(std::vector<Shape>& gShape, const std::vector<POINT>& points)
+{
+	if (points.size() < 2) return;
+
+	Shape sp;
+	sp.type = ShapeType::Polygon;
+	sp.vertices = points;
+
+	gShape.push_back(sp);
+}
+
+POINT GetShapeCenter(const Shape& shape)
+{
+	if (shape.vertices.empty()) return { 0, 0 };
+
+	long sumX = 0, sumY = 0;
+	for (const auto& pt : shape.vertices)
+	{
+		sumX += pt.x;
+		sumY += pt.y;
+	}
+	return { sumX / (long)shape.vertices.size(), sumY / (long)shape.vertices.size() };
+}

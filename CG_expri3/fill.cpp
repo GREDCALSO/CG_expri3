@@ -104,7 +104,11 @@ namespace GraphicFunc
 
 		void FillRandomShapeScanline(std::vector<POINT>& poly, Renderer& renderer)
 		{
-			if (poly.size() < 3) return;
+			if (poly.size() < 3)
+			{
+				poly.clear();
+				return;
+			}
 			Color color(0.73f, 0.46f, 0.81f, 1.0f);
 			FillPolygonScanline(poly, renderer, color);
 			poly.clear();
@@ -173,7 +177,11 @@ namespace GraphicFunc
 
 		void FillRandomShapeFence(std::vector<POINT>& poly, Renderer& renderer)
 		{
-			if (poly.size() < 3) return;
+			if (poly.size() < 3)
+			{
+				poly.clear();
+				return;
+			}
 			Color color(0.96f, 0.76f, 0.26f, 1.0f); // »ÆÉ«
 			FillPolygonFence(poly, renderer, color);
 			poly.clear();

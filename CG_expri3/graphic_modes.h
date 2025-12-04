@@ -16,5 +16,9 @@ enum class GraphicMode
 	RandomCurve,
 	Translate,
 	Scale,
-	Rotate
+	Rotate,
+	ClipLine_CohenSutherland,
+	ClipLine_MidpointSubdivision,
+	ClipPolygon_SutherlandHodgman,
+	ClipPolygon_WeilerAtherton
 };

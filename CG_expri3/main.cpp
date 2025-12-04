@@ -15,9 +15,43 @@ bool is_drawing = false;
 
 std::vector<Shape> gShapes;	//全局图元
 int selectedShape = -1;	//当前选中的图形
+POINT pivot_point = { 0,0 };	//旋转中心
+bool hasPivotPoint = false;	//是否设置了旋转中心
+Shape originalShape;	//保存选中图像的原状态，预览时调用
+bool hasOriginalShape = false;
+
 GraphicMode graphic_modes = GraphicMode::LineBresenham;
 
 HWND main_hwnd = nullptr;
+
+//重绘图形
+void RedrawAllShapes(HWND hwnd)
+{
+	renderer.Clear();
+	for (auto& s : gShapes)
+	{
+		if (s.type == ShapeType::Line && s.vertices.size() >= 2)
+		{
+			GraphicFunc::Line::DrawLineBresenham(
+				s.vertices[0].x, s.vertices[0].y,
+				s.vertices[1].x, s.vertices[1].y,
+				renderer
+			);
+		}
+		else if (s.type == ShapeType::Polygon && s.vertices.size() >= 2)
+		{
+			GraphicFunc::Polygon::DrawRandomPolygon(s.vertices, renderer);
+		}
+	}
+
+	//如果在旋转模式且设置了旋转中心，重新绘制旋转中心点
+	if (graphic_modes == GraphicMode::Rotate && hasPivotPoint)
+	{
+		GraphicFunc::MarkPoint::DrawMarkPoint(pivot_point.x, pivot_point.y, renderer);
+	}
+
+	InvalidateRect(hwnd, NULL, FALSE);
+}
 
 LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -35,6 +69,8 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			renderer.Clear();
 			control_points.clear();	//清空控制点
 			gShapes.clear();	//清空图元表
+			selectedShape = -1;	//重置选中图形
+			hasPivotPoint = false;	//清除旋转中心
 			InvalidateRect(hwnd, nullptr, FALSE);
 			return 0;
 		}
@@ -46,6 +82,9 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				MessageBoxW(hwnd, L"错误提示", L"下拉框有bug", MB_OK | MB_ICONERROR);
 			}
+
+			GraphicMode oldMode = graphic_modes;	//记录先前的模式
+
 			switch (sel)
 			{
 			case 0:
@@ -105,49 +144,108 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 			case 11:
 				graphic_modes = GraphicMode::Translate;
-				SetWindowTextW(label_OperationMode, L"平移");
+				SetWindowTextW(label_OperationMode, L"点击选中图形，按住拖动平移");
+				break;
 
 			case 12:
 				graphic_modes = GraphicMode::Scale;
-				SetWindowTextW(label_OperationMode, L"缩放");
+				SetWindowTextW(label_OperationMode, L"点击选中图形，按住拖拽缩放（向右下放大，向左上缩小）");
+				break;
 
 			case 13:
 				graphic_modes = GraphicMode::Rotate;
-				SetWindowTextW(label_OperationMode, L"旋转");
+				SetWindowTextW(label_OperationMode, L"右键设置旋转中心，左键点击选中图形，按住拖拽旋转（向右顺时针旋转，向左逆时针旋转）");
+				break;
+
+			case 14:
+				graphic_modes = GraphicMode::ClipLine_CohenSutherland;
+				SetWindowTextW(label_OperationMode, L"占位");
+				break;
+
+			case 15:
+				graphic_modes = GraphicMode::ClipLine_MidpointSubdivision;
+				SetWindowTextW(label_OperationMode, L"占位");
+				break;
+
+			case 16:
+				graphic_modes = GraphicMode::ClipPolygon_SutherlandHodgman;
+				SetWindowTextW(label_OperationMode, L"占位");
+				break;
+
+			case 17:
+				graphic_modes = GraphicMode::ClipPolygon_WeilerAtherton;
+				SetWindowTextW(label_OperationMode, L"占位");
+				break;
 
 			default:
 				graphic_modes = GraphicMode::LineBresenham;
 				SetWindowTextW(label_OperationMode, L"按下鼠标左键位置为线段起点，释放鼠标左键位置为线段终点");
 				break;
 			}
+
+			//如果从旋转模式切换到其他模式，需要清理旋转中心
+			if (oldMode == GraphicMode::Rotate && graphic_modes != GraphicMode::Rotate)
+			{
+				hasPivotPoint = false;
+				RedrawAllShapes(hwnd);
+			}
 		}
+
 		return 0;
 	}
 
 	case WM_LBUTTONDOWN:
-		pos_start.x = LOWORD(lParam);
-		pos_start.y = HIWORD(lParam);
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		pos_start.x = x;
+		pos_start.y = y;
 		is_drawing = true;
+
 		//画笔模式，线段连续，初始化上一点
 		if (graphic_modes == GraphicMode::Brush)
 		{
 			pos_end = pos_start;
 		}
-		//选中图形
-		for (int i = 0; i < gShapes.size(); i++)
+
+		//Transform选中图形
+		if (graphic_modes == GraphicMode::Translate ||
+			graphic_modes == GraphicMode::Scale ||
+			graphic_modes == GraphicMode::Rotate)
 		{
-			if (PointInsideShape({ LOWORD(lParam),HIWORD(lParam) }, gShapes[i]))
+			selectedShape = -1; //先重置选中
+			for (int i = (int)gShapes.size() - 1; i >= 0; i--) // 从上层往下找
 			{
-				selectedShape = i;
-				break;
+				if (PointInsideShape({ x, y }, gShapes[i]))
+				{
+					selectedShape = i;
+					//保存原始图形状态
+					originalShape = gShapes[i];
+					hasOriginalShape = true;
+					break;
+				}
 			}
 		}
+
 		return 0;
+	}
 
 	case WM_RBUTTONDOWN:
 	{
 		int x = LOWORD(lParam);
 		int y = HIWORD(lParam);
+
+		//在选择模式下右键设置旋转中心
+		if (graphic_modes == GraphicMode::Rotate)
+		{
+			pivot_point.x = x;
+			pivot_point.y = y;
+			hasPivotPoint = true;
+			//绘制一个标记点表示旋转中心
+			GraphicFunc::MarkPoint::DrawMarkPoint(x, y, renderer);
+			InvalidateRect(hwnd, NULL, FALSE);
+			return 0;
+		}
 
 		//有 4 种情况需要控制点
 		switch (graphic_modes)
@@ -165,13 +263,15 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	}
 
 	case WM_MOUSEMOVE:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+
 		switch (graphic_modes)
 		{
 		case GraphicMode::Brush:
 			if (is_drawing)
 			{
-				int x = LOWORD(lParam);
-				int y = HIWORD(lParam);
 				if (x != pos_end.x || y != pos_end.y)
 				{
 					GraphicFunc::Brush::DrawFreeLine(pos_end.x, pos_end.y, x, y, renderer);
@@ -181,17 +281,97 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 
-		default:
+		case GraphicMode::Translate:
+			//实时预览平移
+			if (is_drawing && selectedShape >= 0 && selectedShape < (int)gShapes.size() && hasOriginalShape)
+			{
+				// 计算相对于初始点击位置的偏移量
+				int dx = x - pos_start.x;
+				int dy = y - pos_start.y;
+
+				// 基于原始图形进行变换
+				Shape tempShape = originalShape;
+				float M[3][3];
+				GraphicFunc::Transform::GetTranslateMatrix((float)dx, (float)dy, M);
+				GraphicFunc::Transform::TransformShape(tempShape.vertices, M);
+
+				// 更新选中图形为预览状态
+				gShapes[selectedShape] = tempShape;
+
+				// 重绘所有图形
+				RedrawAllShapes(hwnd);
+			}
+			break;
+
+		case GraphicMode::Scale:
+			//实时预览缩放
+			if (is_drawing && selectedShape >= 0 && selectedShape < (int)gShapes.size() && hasOriginalShape)
+			{
+				int dx = x - pos_start.x;
+				float scaleFactor = 1.0f + dx * 0.01f;
+
+				if (scaleFactor > 0.1f && scaleFactor < 10.0f)
+				{
+					POINT center = GetShapeCenter(originalShape);
+
+					Shape tempShape = originalShape;
+
+					// 先平移到原点，缩放，再平移回去
+					float M1[3][3], M2[3][3], M3[3][3], temp[3][3], M[3][3];
+					GraphicFunc::Transform::GetTranslateMatrix((float)-center.x, (float)-center.y, M1);
+					GraphicFunc::Transform::GetScaleMatrix(scaleFactor, scaleFactor, M2);
+					GraphicFunc::Transform::GetTranslateMatrix((float)center.x, (float)center.y, M3);
+
+					// temp = M2 * M1
+					for (int i = 0; i < 3; i++)
+						for (int j = 0; j < 3; j++)
+							temp[i][j] = M2[i][0] * M1[0][j] + M2[i][1] * M1[1][j] + M2[i][2] * M1[2][j];
+
+					// M = M3 * temp
+					for (int i = 0; i < 3; i++)
+						for (int j = 0; j < 3; j++)
+							M[i][j] = M3[i][0] * temp[0][j] + M3[i][1] * temp[1][j] + M3[i][2] * temp[2][j];
+
+					GraphicFunc::Transform::TransformShape(tempShape.vertices, M);
+					gShapes[selectedShape] = tempShape;
+
+					RedrawAllShapes(hwnd);
+				}
+			}
+			break;
+
+		case GraphicMode::Rotate:
+			//实时预览旋转
+			if (is_drawing && selectedShape >= 0 && selectedShape < (int)gShapes.size() && hasOriginalShape)
+			{
+				int dx = x - pos_start.x;
+				float angle = dx * 0.02f;
+
+				Shape tempShape = originalShape;
+				float M[3][3];
+				GraphicFunc::Transform::GetRotateAroundPointMatrix(
+					angle,
+					(float)pivot_point.x,
+					(float)pivot_point.y,
+					M
+				);
+
+				GraphicFunc::Transform::TransformShape(tempShape.vertices, M);
+				gShapes[selectedShape] = tempShape;
+
+				RedrawAllShapes(hwnd);
+			}
 			break;
 		}
 		return 0;
+	}
 
 	case WM_LBUTTONUP:
 	{
 		int x = LOWORD(lParam);
 		int y = HIWORD(lParam);
-		pos_end.x = LOWORD(lParam);
-		pos_end.y = HIWORD(lParam);
+		pos_end.x = x;
+		pos_end.y = y;
 		bool was_drawing = is_drawing;
 		is_drawing = false;
 
@@ -234,7 +414,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case GraphicMode::FillScanLine:
-			//GraphicFunc::FillRectangleScanline(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer);
 			GraphicFunc::MarkPoint::CleanMarkPoint(control_points, renderer);
 			GraphicFunc::Fill::FillRandomShapeScanline(control_points, renderer);
 			break;
@@ -252,25 +431,156 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		case GraphicMode::RandomPolygon:
 			GraphicFunc::MarkPoint::CleanMarkPoint(control_points, renderer);
 			GraphicFunc::Polygon::DrawRandomPolygon(control_points, renderer);
+			AddShape_polygon(gShapes, control_points);
+			control_points.clear();
 			break;
 
 		case GraphicMode::Translate:
-		{
-			float M[3][3];
-			int dx = pos_end.x - pos_start.x;
-			int dy = pos_end.y - pos_start.y;
-			GraphicFunc::Transform::ApplyMatrix({ dx,dy }, M);
-			GraphicFunc::Transform::TransformShape(gShapes[selectedShape].vertices, M);
-			renderer.Clear();
+		case GraphicMode::Scale:
+		case GraphicMode::Rotate:
+			//变换已在预览中完成，所以抬起按键时只需清理状态并重绘
+			if (selectedShape >= 0 && selectedShape < (int)gShapes.size() && hasOriginalShape)
+			{
+				// 如果没有移动鼠标，恢复原始状态
+				if (x == pos_start.x && y == pos_start.y)
+				{
+					gShapes[selectedShape] = originalShape;
+				}
+				RedrawAllShapes(hwnd);
+			}
+			hasOriginalShape = false;
+			break;
+
+		case GraphicMode::ClipLine_CohenSutherland:
+		{	//————————CS直线裁切
+			POINT left_top, right_bottom;
+			left_top.x = min(pos_start.x, pos_end.x);
+			left_top.y = min(pos_start.y, pos_end.y);
+			right_bottom.x = max(pos_start.x, pos_end.x);
+			right_bottom.y = max(pos_start.y, pos_end.y);
+
 			for (auto& s : gShapes)
 			{
 				if (s.type == ShapeType::Line)
 				{
-					GraphicFunc::Line::DrawLineBresenham(s.vertices[0].x, s.vertices[0].y, s.vertices[1].x, s.vertices[1].y, renderer);
+					int x0 = s.vertices[0].x;
+					int y0 = s.vertices[0].y;
+					int x1 = s.vertices[1].x;
+					int y1 = s.vertices[1].y;
+
+					if (GraphicFunc::Clip::clip_CohenSutherland(x0, y0, x1, y1, left_top, right_bottom))
+					{
+						s.vertices[0] = { x0, y0 };
+						s.vertices[1] = { x1, y1 };
+					}
+					else
+					{
+						s.vertices.clear();
+					}
 				}
 			}
+			RedrawAllShapes(hwnd);
+			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(0.8f, 0.8f, 0.8f, 0.3f));
+			break;
 		}
+
+		case GraphicMode::ClipLine_MidpointSubdivision:
+		{	//————————中点分割直线裁切
+			POINT left_top, right_bottom;
+			left_top.x = min(pos_start.x, pos_end.x);
+			left_top.y = min(pos_start.y, pos_end.y);
+			right_bottom.x = max(pos_start.x, pos_end.x);
+			right_bottom.y = max(pos_start.y, pos_end.y);
+
+			for (auto& s : gShapes)
+			{
+				if (s.type == ShapeType::Line)
+				{
+					int x0 = s.vertices[0].x;
+					int y0 = s.vertices[0].y;
+					int x1 = s.vertices[1].x;
+					int y1 = s.vertices[1].y;
+
+					if (GraphicFunc::Clip::clip_MidpointSubdivision(x0, y0, x1, y1, left_top, right_bottom))
+					{
+						s.vertices[0] = { x0, y0 };
+						s.vertices[1] = { x1, y1 };
+					}
+					else
+					{
+						s.vertices.clear();
+					}
+				}
+			}
+			RedrawAllShapes(hwnd);
+			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(0.8f, 0.8f, 1.0f, 0.3f));
+			break;
 		}
+
+		case GraphicMode::ClipPolygon_SutherlandHodgman:
+		{	//————————SH多边形裁切
+			RECT clipRect;
+			clipRect.left = min(pos_start.x, pos_end.x);
+			clipRect.right = max(pos_start.x, pos_end.x);
+			clipRect.top = min(pos_start.y, pos_end.y);
+			clipRect.bottom = max(pos_start.y, pos_end.y);
+
+			// 1) Sutherland-Hodgman（矩形裁剪）
+			for (auto& s : gShapes)
+			{
+				if (s.type == ShapeType::Polygon && s.vertices.size() >= 3)
+				{
+					auto clipped = GraphicFunc::Clip::clip_SutherlandHodgman(s.vertices, clipRect);
+					if (clipped.empty())
+					{
+						// 删除或者将其变为空
+						s.vertices.clear();
+					}
+					else
+					{
+						s.vertices = std::move(clipped);
+					}
+				}
+			}
+			// 重新绘制
+			RedrawAllShapes(hwnd);
+			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(1.0f, 0.8f, 0.8f, 0.3f));
+			break;
+		}
+
+		case GraphicMode::ClipPolygon_WeilerAtherton:
+		{	//————————WA多边形裁切
+			RECT clipRect;
+			clipRect.left = min(pos_start.x, pos_end.x);
+			clipRect.right = max(pos_start.x, pos_end.x);
+			clipRect.top = min(pos_start.y, pos_end.y);
+			clipRect.bottom = max(pos_start.y, pos_end.y);
+
+			std::vector<POINT> clipPoly = {
+				{clipRect.left, clipRect.top},
+				{clipRect.right, clipRect.top},
+				{clipRect.right, clipRect.bottom},
+				{clipRect.left, clipRect.bottom}
+			};
+
+			for (auto& s : gShapes)
+			{
+				if (s.type == ShapeType::Polygon && s.vertices.size() >= 3)
+				{
+					auto clipped = GraphicFunc::Clip::clip_WeilerAtherton(s.vertices, clipPoly);
+					if (clipped.empty()) s.vertices.clear(); else s.vertices = std::move(clipped);
+				}
+			}
+
+			RedrawAllShapes(hwnd);
+			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(0.8f, 1.0f, 0.8f, 0.7f));
+			break;
+		}
+
+		default:
+			break;
+		}
+		//结束switch (graphic_modes)
 		InvalidateRect(hwnd, NULL, FALSE);
 		return 0;
 	}

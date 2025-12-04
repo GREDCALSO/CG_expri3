@@ -69,6 +69,12 @@
     <ClCompile Include="utils.cpp">
       <Filter>源文件\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="clip_line.cpp">
+      <Filter>源文件\GraphicFunctions</Filter>
+    </ClCompile>
+    <ClCompile Include="clip_polygon.cpp">
+      <Filter>源文件\GraphicFunctions</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ui.h">
@@ -121,6 +127,12 @@
     </ClInclude>
     <ClInclude Include="utils.h">
       <Filter>头文件\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="clip_line.h">
+      <Filter>头文件\GraphicFunctions\head</Filter>
+    </ClInclude>
+    <ClInclude Include="clip_polygon.h">
+      <Filter>头文件\GraphicFunctions\head</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

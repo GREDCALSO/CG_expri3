@@ -9,3 +9,5 @@
 #include"rectang.h"
 #include"markpoint.h"
 #include"transform.h"
+#include"clip_line.h"
+#include"clip_polygon.h"

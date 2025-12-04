@@ -124,6 +124,10 @@ void CreateUIControls(HWND hwndParent)
 	SendMessageW(combo_SelectGraphics, CB_ADDSTRING, 11, (LPARAM)L"——平移——");
 	SendMessageW(combo_SelectGraphics, CB_ADDSTRING, 12, (LPARAM)L"——缩放——");
 	SendMessageW(combo_SelectGraphics, CB_ADDSTRING, 13, (LPARAM)L"——旋转——");
+	SendMessageW(combo_SelectGraphics, CB_ADDSTRING, 14, (LPARAM)L"CS直线裁切");
+	SendMessageW(combo_SelectGraphics, CB_ADDSTRING, 15, (LPARAM)L"中点分割直线裁切");
+	SendMessageW(combo_SelectGraphics, CB_ADDSTRING, 16, (LPARAM)L"SH多边形裁切");
+	SendMessageW(combo_SelectGraphics, CB_ADDSTRING, 17, (LPARAM)L"WA多边形裁切");
 
 	SendMessageW(combo_SelectGraphics, CB_SETCURSEL, 0, 0); //设置选中项
 }

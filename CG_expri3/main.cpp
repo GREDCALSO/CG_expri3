@@ -566,12 +566,12 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				if (s.type == ShapeType::Polygon && s.vertices.size() >= 3)
 				{
-					auto parts = GraphicFunc::Clip::WeilerAthertonClip(s.vertices, left_top, right_bottom);
-					if (!parts.empty())
+					auto polys = GraphicFunc::Clip::WeilerAthertonClip(s.vertices, left_top, right_bottom);
+					if (!polys.empty())
 					{
 						// 如果分成多个多边形，就把第一个作为替换，剩余的 push_back 为新的图元
 						bool first = true;
-						for (auto& poly : parts)
+						for (auto& poly : polys)
 						{
 							if (poly.size() < 3) continue;
 							Shape sp;

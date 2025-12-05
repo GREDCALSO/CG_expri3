@@ -13,10 +13,11 @@ namespace GraphicFunc
 												 const POINT& left_top,
 												 const POINT& right_bottom);
 
-		// Weiler–Atherton：对单个任意多边形（subject）裁剪到矩形 [left_top, right_bottom]
-		// 返回一个向量：可能包含多个闭合多边形（当裁剪产生若干不相连区域时）
+		// Weiler–Atherton多边形裁切
+		// 能正确处理凹多边形，返回裁剪后的多个多边形（凹多边形可能产生多个结果）
 		std::vector<std::vector<POINT>> WeilerAthertonClip(const std::vector<POINT>& subject,
 														   const POINT& left_top,
 														   const POINT& right_bottom);
+
 	}
 }

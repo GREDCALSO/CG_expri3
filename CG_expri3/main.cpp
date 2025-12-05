@@ -519,61 +519,86 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 		case GraphicMode::ClipPolygon_SutherlandHodgman:
 		{	//————————SH多边形裁切
-			RECT clipRect;
-			clipRect.left = min(pos_start.x, pos_end.x);
-			clipRect.right = max(pos_start.x, pos_end.x);
-			clipRect.top = min(pos_start.y, pos_end.y);
-			clipRect.bottom = max(pos_start.y, pos_end.y);
+			POINT left_top, right_bottom;
+			left_top.x = min(pos_start.x, pos_end.x);
+			left_top.y = min(pos_start.y, pos_end.y);
+			right_bottom.x = max(pos_start.x, pos_end.x);
+			right_bottom.y = max(pos_start.y, pos_end.y);
 
-			// 1) Sutherland-Hodgman（矩形裁剪）
+			std::vector<Shape> newShapes;
 			for (auto& s : gShapes)
 			{
 				if (s.type == ShapeType::Polygon && s.vertices.size() >= 3)
 				{
-					auto clipped = GraphicFunc::Clip::clip_SutherlandHodgman(s.vertices, clipRect);
-					if (clipped.empty())
+					auto clipped = GraphicFunc::Clip::SutherlandHodgmanClip(s.vertices, left_top, right_bottom);
+					if (!clipped.empty())
 					{
-						// 删除或者将其变为空
-						s.vertices.clear();
+						Shape sp;
+						sp.type = ShapeType::Polygon;
+						sp.vertices = clipped;
+						newShapes.push_back(sp);
 					}
-					else
-					{
-						s.vertices = std::move(clipped);
-					}
+					// 否则剪成空：删除（不加入 newShapes）
+				}
+				else
+				{
+					// 非多边形/直线保持不变
+					newShapes.push_back(s);
 				}
 			}
-			// 重新绘制
+			gShapes.swap(newShapes);
 			RedrawAllShapes(hwnd);
-			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(1.0f, 0.8f, 0.8f, 0.3f));
+			// 绘制裁剪框作为提示
+			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(0.8f, 0.8f, 0.8f, 0.3f));
 			break;
 		}
 
 		case GraphicMode::ClipPolygon_WeilerAtherton:
 		{	//————————WA多边形裁切
-			RECT clipRect;
-			clipRect.left = min(pos_start.x, pos_end.x);
-			clipRect.right = max(pos_start.x, pos_end.x);
-			clipRect.top = min(pos_start.y, pos_end.y);
-			clipRect.bottom = max(pos_start.y, pos_end.y);
+			POINT left_top, right_bottom;
+			left_top.x = min(pos_start.x, pos_end.x);
+			left_top.y = min(pos_start.y, pos_end.y);
+			right_bottom.x = max(pos_start.x, pos_end.x);
+			right_bottom.y = max(pos_start.y, pos_end.y);
 
-			std::vector<POINT> clipPoly = {
-				{clipRect.left, clipRect.top},
-				{clipRect.right, clipRect.top},
-				{clipRect.right, clipRect.bottom},
-				{clipRect.left, clipRect.bottom}
-			};
-
+			std::vector<Shape> newShapes;
 			for (auto& s : gShapes)
 			{
 				if (s.type == ShapeType::Polygon && s.vertices.size() >= 3)
 				{
-					auto clipped = GraphicFunc::Clip::clip_WeilerAtherton(s.vertices, clipPoly);
-					if (clipped.empty()) s.vertices.clear(); else s.vertices = std::move(clipped);
+					auto parts = GraphicFunc::Clip::WeilerAthertonClip(s.vertices, left_top, right_bottom);
+					if (!parts.empty())
+					{
+						// 如果分成多个多边形，就把第一个作为替换，剩余的 push_back 为新的图元
+						bool first = true;
+						for (auto& poly : parts)
+						{
+							if (poly.size() < 3) continue;
+							Shape sp;
+							sp.type = ShapeType::Polygon;
+							sp.vertices = poly;
+							if (first)
+							{
+								newShapes.push_back(sp);
+								first = false;
+							}
+							else
+							{
+								newShapes.push_back(sp);
+							}
+						}
+					}
+					// 否则裁剪为空则不保存
+				}
+				else
+				{
+					// 非多边形/直线保持不变
+					newShapes.push_back(s);
 				}
 			}
-
+			gShapes.swap(newShapes);
 			RedrawAllShapes(hwnd);
-			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(0.8f, 1.0f, 0.8f, 0.7f));
+			GraphicFunc::Rectang::DrawRectangle(pos_start.x, pos_start.y, pos_end.x, pos_end.y, renderer, Color(0.8f, 0.8f, 0.8f, 0.3f));
 			break;
 		}
 

@@ -1,4 +1,5 @@
 #include"clip_line.h"
+#include<cmath>
 
 namespace GraphicFunc
 {
@@ -94,117 +95,144 @@ namespace GraphicFunc
 
 		bool clip_MidpointSubdivision(int& x0, int& y0, int& x1, int& y1, const POINT& left_top, const POINT& right_bottom)
 		{
-			//判断线段是否完全在窗口内
-			auto LineInside = [&](int x0, int y0, int x1, int y1, const POINT& left_top, const POINT& right_bottom)
-				{
-					return ComputeOutCode(x0, y0, left_top, right_bottom) == 0
-						&& ComputeOutCode(x1, y1, left_top, right_bottom) == 0;
-				};
-
-			//判断线段是否完全在窗口外
-			auto LineOutside = [&](int x0, int y0, int x1, int y1, const POINT& left_top, const POINT& right_bottom)
-				{
-					int code0 = ComputeOutCode(x0, y0, left_top, right_bottom);
-					int code1 = ComputeOutCode(x1, y1, left_top, right_bottom);
-					return (code0 & code1) != 0;
-				};
-
-			// 如果线段完全在内部，直接返回
-			if (LineInside(x0, y0, x1, y1, left_top, right_bottom))
-			{
+			// 初始编码
+			int code0 = ComputeOutCode(x0, y0, left_top, right_bottom);
+			int code1 = ComputeOutCode(x1, y1, left_top, right_bottom);
+			
+			// 完全在窗口外（两端点在窗口同一侧外）
+			if (code0 & code1) {
+				return false;
+			}
+			
+			// 完全在窗口内
+			if (code0 == 0 && code1 == 0) {
 				return true;
 			}
 
-			// 如果线段完全在外部，直接返回
-			if (LineOutside(x0, y0, x1, y1, left_top, right_bottom))
-			{
-				return false;
-			}
+			// 使用浮点数以提高精度
+			double px0 = x0, py0 = y0;
+			double px1 = x1, py1 = y1;
+			
+			const int MAX_ITERATIONS = 30;
+			const double PRECISION = 0.5;
 
-			// 中点分割法 - 迭代版本
-			int x_start = x0, y_start = y0;
-			int x_end = x1, y_end = y1;
-
-			// 处理起点在窗口外的情况
-			int code_start = ComputeOutCode(x_start, y_start, left_top, right_bottom);
-			while (code_start != 0)
-			{
-				int x_mid = (x_start + x_end) / 2;
-				int y_mid = (y_start + y_end) / 2;
-
-				// 如果中点在窗口内，替换起点
-				int code_mid = ComputeOutCode(x_mid, y_mid, left_top, right_bottom);
-				if (code_mid == 0)
-				{
-					x_start = x_mid;
-					y_start = y_mid;
-					code_start = 0;
+			// 步骤1: 如果起点在窗口外，找到从起点方向的第一个进入点
+			if (code0 != 0) {
+				double a_x = px0, a_y = py0;  // 外部点
+				double b_x = px1, b_y = py1;  // 另一个点
+				
+				for (int iter = 0; iter < MAX_ITERATIONS; iter++) {
+					double mid_x = (a_x + b_x) / 2.0;
+					double mid_y = (a_y + b_y) / 2.0;
+					
+					int code_mid = ComputeOutCode((int)round(mid_x), (int)round(mid_y), left_top, right_bottom);
+					int code_a = ComputeOutCode((int)round(a_x), (int)round(a_y), left_top, right_bottom);
+					
+					// 如果中点在内部，交点在 a 和 mid 之间
+					if (code_mid == 0) {
+						b_x = mid_x;
+						b_y = mid_y;
+					}
+					// 如果中点和 a 在同一区域外，交点在 mid 和 b 之间
+					else if (code_mid & code_a) {
+						a_x = mid_x;
+						a_y = mid_y;
+					}
+					// 中点在不同的外部区域，交点在 a 和 mid 之间
+					else {
+						b_x = mid_x;
+						b_y = mid_y;
+					}
+					
+					// 检查精度
+					double dist = sqrt((b_x - a_x) * (b_x - a_x) + (b_y - a_y) * (b_y - a_y));
+					if (dist < PRECISION) {
+						break;
+					}
 				}
-				// 如果中点也在窗口外，检查是否与起点在同一侧
-				else if (code_mid & code_start)
-				{
-					x_start = x_mid;
-					y_start = y_mid;
-					code_start = code_mid;
-				}
-				// 否则中点和起点在不同侧，替换终点
-				else
-				{
-					x_end = x_mid;
-					y_end = y_mid;
-				}
-
-				// 如果线段足够短，终止迭代
-				if (abs(x_start - x_end) <= 1 && abs(y_start - y_end) <= 1)
-				{
-					break;
-				}
-			}
-
-			// 处理终点在窗口外的情况
-			int code_end = ComputeOutCode(x_end, y_end, left_top, right_bottom);
-			while (code_end != 0)
-			{
-				int x_mid = (x_start + x_end) / 2;
-				int y_mid = (y_start + y_end) / 2;
-
-				// 如果中点在窗口内，替换终点
-				int code_mid = ComputeOutCode(x_mid, y_mid, left_top, right_bottom);
-				if (code_mid == 0)
-				{
-					x_end = x_mid;
-					y_end = y_mid;
-					code_end = 0;
-				}
-				// 如果中点也在窗口外，检查是否与终点在同一侧
-				else if (code_mid & code_end)
-				{
-					x_end = x_mid;
-					y_end = y_mid;
-					code_end = code_mid;
-				}
-				// 否则中点和终点在不同侧，替换起点
-				else
-				{
-					x_start = x_mid;
-					y_start = y_mid;
-				}
-
-				// 如果线段足够短，终止迭代
-				if (abs(x_start - x_end) <= 1 && abs(y_start - y_end) <= 1)
-				{
-					break;
+				
+				// 取更接近窗口内部的点
+				int code_a = ComputeOutCode((int)round(a_x), (int)round(a_y), left_top, right_bottom);
+				int code_b = ComputeOutCode((int)round(b_x), (int)round(b_y), left_top, right_bottom);
+				
+				if (code_b == 0) {
+					px0 = b_x;
+					py0 = b_y;
+				} else if (code_a == 0) {
+					px0 = a_x;
+					py0 = a_y;
+				} else {
+					// 都不在内部，取中点
+					px0 = (a_x + b_x) / 2.0;
+					py0 = (a_y + b_y) / 2.0;
 				}
 			}
 
-			// 更新原始坐标
-			x0 = x_start;
-			y0 = y_start;
-			x1 = x_end;
-			y1 = y_end;
+			// 步骤2: 如果终点在窗口外，找到从终点方向的第一个进入点
+			code1 = ComputeOutCode(x1, y1, left_top, right_bottom);
+			if (code1 != 0) {
+				double a_x = px1, a_y = py1;  // 外部点
+				double b_x = px0, b_y = py0;  // 另一个点（已更新的起点）
+				
+				for (int iter = 0; iter < MAX_ITERATIONS; iter++) {
+					double mid_x = (a_x + b_x) / 2.0;
+					double mid_y = (a_y + b_y) / 2.0;
+					
+					int code_mid = ComputeOutCode((int)round(mid_x), (int)round(mid_y), left_top, right_bottom);
+					int code_a = ComputeOutCode((int)round(a_x), (int)round(a_y), left_top, right_bottom);
+					
+					// 如果中点在内部，交点在 a 和 mid 之间
+					if (code_mid == 0) {
+						b_x = mid_x;
+						b_y = mid_y;
+					}
+					// 如果中点和 a 在同一区域外，交点在 mid 和 b 之间
+					else if (code_mid & code_a) {
+						a_x = mid_x;
+						a_y = mid_y;
+					}
+					// 中点在不同的外部区域，交点在 a 和 mid 之间
+					else {
+						b_x = mid_x;
+						b_y = mid_y;
+					}
+					
+					// 检查精度
+					double dist = sqrt((b_x - a_x) * (b_x - a_x) + (b_y - a_y) * (b_y - a_y));
+					if (dist < PRECISION) {
+						break;
+					}
+				}
+				
+				// 取更接近窗口内部的点
+				int code_a = ComputeOutCode((int)round(a_x), (int)round(a_y), left_top, right_bottom);
+				int code_b = ComputeOutCode((int)round(b_x), (int)round(b_y), left_top, right_bottom);
+				
+				if (code_b == 0) {
+					px1 = b_x;
+					py1 = b_y;
+				} else if (code_a == 0) {
+					px1 = a_x;
+					py1 = a_y;
+				} else {
+					// 都不在内部，取中点
+					px1 = (a_x + b_x) / 2.0;
+					py1 = (a_y + b_y) / 2.0;
+				}
+			}
 
-			// 最后检查线段是否在窗口内
-			return LineInside(x0, y0, x1, y1, left_top, right_bottom);
+			// 更新坐标（使用round四舍五入）
+			x0 = (int)round(px0);
+			y0 = (int)round(py0);
+			x1 = (int)round(px1);
+			y1 = (int)round(py1);
+
+			// 最终验证
+			code0 = ComputeOutCode(x0, y0, left_top, right_bottom);
+			code1 = ComputeOutCode(x1, y1, left_top, right_bottom);
+			
+			// 只要两个端点都在窗口内或边界上就成功
+			return (code0 == 0 && code1 == 0);
 		}
 	}
 }

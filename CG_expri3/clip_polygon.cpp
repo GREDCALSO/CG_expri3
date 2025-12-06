@@ -280,18 +280,18 @@ namespace GraphicFunc
 				return result;
 			}
 
-			// Weiler-Atherton算法：从每个进入交点开始遍历
+			// Weiler-Atherton算法：从每个未访问的进入交点开始独立遍历
 			std::vector<bool> visited(vertices.size(), false);
 			
 			for (size_t start = 0; start < vertices.size(); ++start) {
+				// 只从未访问的进入交点开始
 				if (visited[start] || !vertices[start].isIntersection || !vertices[start].isEntering) {
 					continue;
 				}
 
 				std::vector<POINT> polygon;
 				size_t curr = start;
-				bool followingSubject = true;  // 当前是否沿着subject边
-				int maxIter = (int)vertices.size() * 3;
+				int maxIter = (int)vertices.size() * 2;
 				int iter = 0;
 
 				do {
@@ -306,123 +306,29 @@ namespace GraphicFunc
 						polygon.push_back(pt);
 					}
 
-					if (followingSubject) {
-						// 沿subject边前进到下一个顶点
-						curr = (curr + 1) % vertices.size();
-
-						// 如果遇到leaving交点，需要切换到沿clip边界
-						if (vertices[curr].isIntersection && !vertices[curr].isEntering) {
-							visited[curr] = true;
-							
-							// 添加离开点
-							POINT leavePt = { (LONG)std::round(vertices[curr].x),
-											 (LONG)std::round(vertices[curr].y) };
-							
-							if (polygon.empty() || polygon.back().x != leavePt.x || polygon.back().y != leavePt.y) {
-								polygon.push_back(leavePt);
-							}
-
-							// 现在需要沿clip边界到下一个entering交点
-							// 关键：不是绕一圈，而是找到最近的下一个entering交点
-							
-							size_t nextEnter = curr;
-							double minDist = 1e9;
-							bool foundNext = false;
-							
-							// 只在未访问的交点中查找
-							for (size_t search = 0; search < vertices.size(); ++search) {
-								if (search == curr) continue;
-								if (vertices[search].isIntersection && vertices[search].isEntering && !visited[search]) {
-									// 计算距离（简单的欧几里得距离）
-									double dist = sqrt(pow(vertices[search].x - vertices[curr].x, 2) + 
-													  pow(vertices[search].y - vertices[curr].y, 2));
-									if (dist < minDist) {
-										minDist = dist;
-										nextEnter = search;
-										foundNext = true;
-									}
-								}
-							}
-
-							if (foundNext && nextEnter != curr) {
-								// 检查是否需要添加clip边界上的角点
-								double lx = vertices[curr].x, ly = vertices[curr].y;
-								double nx = vertices[nextEnter].x, ny = vertices[nextEnter].y;
-								
-								// 判断两个交点是否在同一条clip边上或相邻边上
-								const double edgeTol = 2.0;
-								bool onSameEdge = false;
-								
-								// 检查是否在同一条边上（四条边）
-								if ((fabs(lx - left_top.x) < edgeTol && fabs(nx - left_top.x) < edgeTol) ||      // 左边
-									(fabs(lx - right_bottom.x) < edgeTol && fabs(nx - right_bottom.x) < edgeTol) ||  // 右边
-									(fabs(ly - left_top.y) < edgeTol && fabs(ny - left_top.y) < edgeTol) ||      // 上边
-									(fabs(ly - right_bottom.y) < edgeTol && fabs(ny - right_bottom.y) < edgeTol)) {  // 下边
-									onSameEdge = true;
-								}
-								
-								// 如果不在同一条边上，需要添加中间的角点
-								if (!onSameEdge) {
-									// 确定当前点在哪条边上
-									bool currOnLeft = (fabs(lx - left_top.x) < edgeTol);
-									bool currOnRight = (fabs(lx - right_bottom.x) < edgeTol);
-									bool currOnTop = (fabs(ly - left_top.y) < edgeTol);
-									bool currOnBottom = (fabs(ly - right_bottom.y) < edgeTol);
-									
-									// 确定下一个点在哪条边上
-									bool nextOnLeft = (fabs(nx - left_top.x) < edgeTol);
-									bool nextOnRight = (fabs(nx - right_bottom.x) < edgeTol);
-									bool nextOnTop = (fabs(ny - left_top.y) < edgeTol);
-									bool nextOnBottom = (fabs(ny - right_bottom.y) < edgeTol);
-									
-									// 根据位置决定需要添加哪些角点（顺时针方向）
-									std::vector<POINT> corners;
-									
-									if (currOnTop && nextOnRight) {
-										corners.push_back({right_bottom.x, left_top.y});
-									} else if (currOnRight && nextOnBottom) {
-										corners.push_back({right_bottom.x, right_bottom.y});
-									} else if (currOnBottom && nextOnLeft) {
-										corners.push_back({left_top.x, right_bottom.y});
-									} else if (currOnLeft && nextOnTop) {
-										corners.push_back({left_top.x, left_top.y});
-									} else if (currOnTop && nextOnBottom) {
-										// 跨两条边
-										if (lx < nx) {
-											corners.push_back({right_bottom.x, left_top.y});
-											corners.push_back({right_bottom.x, right_bottom.y});
-										} else {
-											corners.push_back({left_top.x, left_top.y});
-											corners.push_back({left_top.x, right_bottom.y});
-										}
-									} else if (currOnLeft && nextOnRight) {
-										if (ly < ny) {
-											corners.push_back({left_top.x, left_top.y});
-											corners.push_back({right_bottom.x, left_top.y});
-										} else {
-											corners.push_back({left_top.x, right_bottom.y});
-											corners.push_back({right_bottom.x, right_bottom.y});
-										}
-									}
-									// 其他情况类似处理...
-									
-									for (const auto& corner : corners) {
-										if (polygon.empty() || polygon.back().x != corner.x || polygon.back().y != corner.y) {
-											polygon.push_back(corner);
-										}
-									}
-								}
-								
-								curr = nextEnter;
-								followingSubject = true;
-							} else {
-								// 没找到下一个entering点，结束循环
-								break;
-							}
+					// 沿subject边前进到下一个顶点
+					size_t next = (curr + 1) % vertices.size();
+					
+					// 检查下一个点是否是离开交点
+					if (vertices[next].isIntersection && !vertices[next].isEntering) {
+						// 遇到离开交点，添加它并结束当前多边形
+						visited[next] = true;
+						
+						POINT leavePt;
+						leavePt.x = (LONG)std::round(vertices[next].x);
+						leavePt.y = (LONG)std::round(vertices[next].y);
+						
+						if (polygon.empty() || polygon.back().x != leavePt.x || polygon.back().y != leavePt.y) {
+							polygon.push_back(leavePt);
 						}
+						
+						// 关键修改：结束当前多边形，不再继续寻找下一个进入点
+						break;
 					}
-
+					
+					curr = next;
 					iter++;
+					
 				} while (curr != start && iter < maxIter);
 
 				// 去除首尾重复
@@ -431,6 +337,7 @@ namespace GraphicFunc
 					polygon.pop_back();
 				}
 
+				// 只添加有效的多边形（至少3个顶点）
 				if (polygon.size() >= 3) {
 					result.push_back(polygon);
 				}

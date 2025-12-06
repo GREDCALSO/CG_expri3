@@ -159,22 +159,22 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 			case 14:
 				graphic_modes = GraphicMode::ClipLine_CohenSutherland;
-				SetWindowTextW(label_OperationMode, L"占位");
+				SetWindowTextW(label_OperationMode, L"按下鼠标左键位置为对角线起点，释放鼠标左键位置为对角线终点，左键抬起完成裁切");
 				break;
 
 			case 15:
 				graphic_modes = GraphicMode::ClipLine_MidpointSubdivision;
-				SetWindowTextW(label_OperationMode, L"占位");
+				SetWindowTextW(label_OperationMode, L"按下鼠标左键位置为对角线起点，释放鼠标左键位置为对角线终点，左键抬起完成裁切");
 				break;
 
 			case 16:
 				graphic_modes = GraphicMode::ClipPolygon_SutherlandHodgman;
-				SetWindowTextW(label_OperationMode, L"占位");
+				SetWindowTextW(label_OperationMode, L"按下鼠标左键位置为对角线起点，释放鼠标左键位置为对角线终点，左键抬起完成裁切");
 				break;
 
 			case 17:
 				graphic_modes = GraphicMode::ClipPolygon_WeilerAtherton;
-				SetWindowTextW(label_OperationMode, L"占位");
+				SetWindowTextW(label_OperationMode, L"按下鼠标左键位置为对角线起点，释放鼠标左键位置为对角线终点，左键抬起完成裁切");
 				break;
 
 			default:
@@ -640,7 +640,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
 	main_hwnd = CreateWindowExW(
 		0,
 		L"Experiment3",
-		L"简易绘图",
+		L"202311534黄贵宏",
 		WS_OVERLAPPEDWINDOW ^ WS_THICKFRAME ^ WS_MAXIMIZEBOX | WS_CLIPCHILDREN,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,

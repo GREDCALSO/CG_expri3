@@ -2,6 +2,8 @@
 #include<vector>
 #include<Windows.h>
 
+/*-----------component_shape.h-----------*/
+
 enum class ShapeType
 {
 	Line,
